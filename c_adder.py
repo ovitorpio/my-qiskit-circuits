@@ -22,9 +22,6 @@ def c_adder(n_bits):
     # registrador para o carryout do CDKMRippleCarryAdder
     reg_cout = QuantumRegister(1, "cout")
 
-    # registrador de ajuda para o CDKMRipplecarryadder
-    #reg_help = QuantumRegister(1, "help")
-
     # inicializacao do circuito
     circuito = QuantumCircuit(reg_control, reg_cin, reg_a, reg_0, reg_b, reg_cout, name="c_adder")
 
