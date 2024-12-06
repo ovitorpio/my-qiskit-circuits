@@ -139,7 +139,7 @@ else:
 
 '''
 
-circuito.measure(reg_0_mod[:] + reg_a[:], reg_result)
+circuito.measure(reg_a[:] + reg_0_mod[:], reg_result)
 #circuito.measure(reg_0_mod, reg_mod)
 #circuito.measure(reg_a, reg_A_result)
 
