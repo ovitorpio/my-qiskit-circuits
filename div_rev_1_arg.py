@@ -160,7 +160,7 @@ print(f"H dividido por {b}")
 if DivResult:
     print("DIV:",job.result()[0].data.DIV.get_int_counts())
 else:
-    print("Resultado (|A>|A mod b>):",job.result()[0].data.resultado.get_int_counts())
+    print("|A>|A mod b>:",job.result()[0].data.resultado.get_int_counts())
     #print("A:", job.result()[0].data.ResultadoA.get_int_counts())
 
 
