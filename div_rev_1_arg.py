@@ -16,9 +16,10 @@ reg_0 = QuantumRegister(a_bits - b_bits + 2, "0")
 # registrador para o carryout do CDKMRippleCarryAdder
 reg_cout = QuantumRegister(1, "cout")
 
-#reg_help = QuantumRegister(1, "help")
-
-reg_result = ClassicalRegister(a_bits - b_bits + 1, "resultado")
+# divisão
+#reg_result = ClassicalRegister(a_bits - b_bits + 1, "resultado")
+#mod
+reg_result = ClassicalRegister(b_bits, "resultado")
 
 circuito = QuantumCircuit(reg_0, reg_a, reg_cout, reg_result)
 
@@ -38,7 +39,10 @@ for i in range(a_bits - b_bits + 1):
     if i < a_bits - b_bits:
         circuito.cx(reg_a[a_bits - i - 1], reg_0[-1])
 
-circuito.measure(reg_0[:-1][::-1], reg_result)
+# divisão
+#circuito.measure(reg_0[:-1][::-1], reg_result)
+# mod
+circuito.measure(reg_a[:b_bits], reg_result)
 
 from qiskit_aer import AerSimulator
 from qiskit import transpile
