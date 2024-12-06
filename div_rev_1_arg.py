@@ -163,5 +163,5 @@ else:
     print("|A>|A mod b>:",job.result()[0].data.resultado.get_int_counts())
     #print("A:", job.result()[0].data.ResultadoA.get_int_counts())
 
-
+print(circuito)
 circuito.draw("mpl")
