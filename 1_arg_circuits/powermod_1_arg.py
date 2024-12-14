@@ -1,4 +1,5 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit.circuit.library import QFT
 from mult_mod_1_e_2 import mult_mod_2
 from math import log2
 
@@ -44,7 +45,7 @@ listaQubits = reg_01[:] + reg_b[:] + reg_0_div[:] + reg_0[:] + reg_0_cout_div[:]
 for i in range(x_bits):
     circuito.append(mult_mod_2(A**(2**i) % N, N, n_bits, controlado=True), reg_x[i:i+1]  + listaQubits)
 
-
+#circuito.append(QFT(x_bits), reg_x[:])
 
 circuito.measure(reg_x[:] + reg_b[:], reg_result)
 
