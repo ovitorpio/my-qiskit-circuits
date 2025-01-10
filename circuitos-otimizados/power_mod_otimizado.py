@@ -54,20 +54,10 @@ for i in range(x_bits):
             circuito.ccx(reg_x[i], reg_b[j], reg_0[j])
             circuito.ccx(reg_x[i], reg_0[j], reg_b[j])
             circuito.ccx(reg_x[i], reg_b[j], reg_0[j])
-    #else:
-        #circuito.append(ctrl_mult_mod(n_bits, (A**(2**i)) % N, N), reg_x[i:i+1] + reg_0[:] + reg_c_aux[:] + reg_b[:] + reg_cout[:] + reg_help[:])
-
-        #circuito.append(ctrl_mult_mod(n_bits, (A**(2**i)) % N, N).inverse(), reg_x[i:i+1] + reg_b[:] + reg_c_aux[:] + reg_0[:] + reg_cout[:] + reg_help[:])
 
 #circuito.append(QFT(x_bits).inverse(), reg_x[:])
 
 circuito.measure(reg_x[:] + reg_b[:], reg_result)
-'''
-if x_bits % 2 == 0:
-    circuito.measure(reg_b[:], reg_result)
-else:
-    circuito.measure(reg_0[:], reg_result)
-'''
 
 from qiskit_aer import AerSimulator
 from qiskit import transpile
