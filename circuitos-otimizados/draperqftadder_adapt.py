@@ -1,6 +1,100 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit.circuit.library import QFT, CPhaseGate
 import numpy as np
+from math import pi
+
+def QFT_correction(qc,reg):
+    n = len(reg)
+
+    # Innitial supperposition
+    qc.h(reg[0])
+    for i in range(2, n):
+        qc.rz(((2**(i) - 1) * pi)/(2**i),reg[i-1])
+    qc.rz(((2**n - 1) * pi)/(2**(n + 1)), reg[-1])
+    qc.barrier()
+
+    for i in range(n-1):
+        if i%2 == 0:
+            # Adding the CNOTs layers
+            for j in range(1, i+1, 2):
+                qc.cx(reg[j],reg[j + 1])
+
+
+
+            for j in range(0, i+1, 2):
+                qc.cx(reg[j + 1],reg[j])
+            qc.barrier()
+
+            # Adding the rotations
+            for j in range(0, i + 1, 2):
+                qc.rz(-pi/(2**(j + 2)), reg[j])
+            qc.barrier()
+
+        else:
+            # Adding the CNOTs layers
+            for j in range(0, i+1, 2):
+                qc.cx(reg[j],reg[j + 1])
+
+
+            for j in range(1, i+1, 2):
+                qc.cx(reg[j + 1],reg[j])
+            qc.barrier()
+
+            # Adding the rotations
+            if i != 0:
+                qc.rx(pi/2, reg[0])
+            for j in range(1, i + 1, 2):
+                qc.rz(-pi/(2**(j + 2)), reg[j])
+            qc.barrier()
+
+    # Adding the middle CNOTs layers
+    for j in range(n%2, i+1, 2): # The initial position is defined by the parity if n
+        qc.cx(reg[j],reg[j + 1])
+
+    for j in range((n+1)%2, i+1, 2):
+        qc.cx(reg[j + 1],reg[j])
+
+    qc.barrier()
+
+    for i in range(n-2, -1, -1):
+        if i%2 == 0:
+            # Adding the rotations
+            if i != 0:
+                qc.rx(pi/2, reg[0])
+            for j in range(1, i + 1, 2):
+                qc.rz(-pi/(2**(j + 2)), reg[j])
+            qc.barrier()
+
+
+            # Adding the CNOTs layers
+            for j in range(1, i+1, 2):
+                qc.cx(reg[j],reg[j + 1])
+
+            for j in range(0, i+1, 2):
+                qc.cx(reg[j + 1],reg[j])
+            qc.barrier()
+
+
+        else:
+            # Adding the rotations
+            for j in range(0, i, 2):
+                qc.rz(-pi/(2**(j + 2)), reg[j])
+            qc.barrier()
+
+            # Adding the CNOTs layers
+            for j in range(0, i+1, 2):
+                qc.cx(reg[j],reg[j + 1])
+
+            for j in range(1, i+1, 2):
+                qc.cx(reg[j + 1],reg[j])
+            qc.barrier()
+
+    # Removing the supperposition
+    qc.h(reg[0])
+    for i in range(2, n):
+        qc.rz(((2**(i) - 1) * pi)/(2**i),reg[i-1])
+    qc.rz(((2**n - 1) * pi)/(2**(n + 1)), reg[-1])
+    qc.barrier()
 
 def draper_adder(n_bits, a, controlado=False, div=False):
     # registradores principais
@@ -18,6 +112,7 @@ def draper_adder(n_bits, a, controlado=False, div=False):
 
         # QFT
         circuito.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+        #QFT_correction(circuito, reg_b[:] + reg_cout[:])
 
         # Portas controladas por A
         for j in range(n_bits):
@@ -42,6 +137,7 @@ def draper_adder(n_bits, a, controlado=False, div=False):
 
         # QFT
         circuito.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+        #QFT_correction(circuito, reg_b[:] + reg_cout[:])
 
         # Portas controladas por A e pelo registrador de controle
         for j in range(n_bits):
