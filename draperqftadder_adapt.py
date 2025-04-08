@@ -1,9 +1,9 @@
 from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.circuit.library import QFT
+from qiskit.circuit.library import QFT, PhaseGate, XGate
 import numpy as np
 
 
-def draper_adder(n_bits, a, controlado=False, div=False):
+def draper_adder(n_bits, a, controlado=False, div=False, control_number=1):
     """Retorna um circuito que corresponde ao DraperQFTAdder [1], sem as QFTs e com um operando clássicamente calculado.
 
     Faz a operação a + b : b é o número que está no registrador reg_b.
@@ -17,13 +17,15 @@ def draper_adder(n_bits, a, controlado=False, div=False):
         Se o adder será controlado ou não (precisa do bit de controle).
     div : bool
         Se o adder será utilizado em uma divisão.
+    control_number : int
+        Número de qubits que controlam esse operador (c qubits).
 
     Retorna:
     QuantumCircuit 
     circuito montado com os registradores nessa ordem:
         if controlado: 
-            n + 2 qubits
-            registrador_controle (1 bit)
+            c + n + 1 qubits
+            registrador_controle (c bits)
             registrador_operando (n bits)
             registrador_carryout (1 bit)
         else:
@@ -63,7 +65,7 @@ def draper_adder(n_bits, a, controlado=False, div=False):
 
     else:
         # Registrador de controle
-        reg_c = QuantumRegister(1, "c")
+        reg_c = QuantumRegister(control_number, "c")
 
         qc = QuantumCircuit(reg_c, reg_b, reg_cout, name="c_adapt_drap_adder")
 
@@ -72,17 +74,17 @@ def draper_adder(n_bits, a, controlado=False, div=False):
             for k in range(n_bits - j):
                 if bitstring[j] == "1":
                     lam = np.pi / (2**k)
-                    qc.cp(lam, reg_c[0], reg_b[j + k])
+                    qc.append(PhaseGate(lam).control(control_number), reg_c[:] + reg_b[j + k:j + k + 1])
 
         for j in range(n_bits):
             if bitstring[n_bits - j - 1] == "1":
                 lam = np.pi / (2 ** (j + 1))
-                qc.cp(lam, reg_c[0], reg_cout[0])
+                qc.append(PhaseGate(lam).control(control_number), reg_c[:] + reg_cout[:])
 
     return qc
 
 
-def adder_mod(n_bits, a, N, controlado=False):
+def adder_mod(n_bits, a, N, controlado=False, control_number=1):
     """Retorna um circuito que implementa o Adder Modular proposto no artigo [1]
         usando o DraperQFTAdder com 1 operando clássicamente calculado como Adder e aplicando
         otimizações do artigo [2] quanto as QFTs.
@@ -116,13 +118,15 @@ cout: ┤5                    ├┤5                       ├┤4      ├─�
         Operando implícito que controla o mod
     controlado : bool
         Se o adder será controlado ou não (precisa do bit de controle).
+    control_number : int
+        Número de qubits que controlam esse operador (c qubits).
 
     Retorna:
     QuantumCircuit 
     circuito montado com os registradores nessa ordem:
         if controlado: 
-            n + 3 qubits
-            registrador_controle (1 bit)
+            c + n + 2 qubits
+            registrador_controle (c bits)
             registrador_operando (n bits)
             registrador_carryout (1 bit)
             registrador_ancilla (1 bit)
@@ -140,7 +144,7 @@ cout: ┤5                    ├┤5                       ├┤4      ├─�
     # Construção dos registradores
 
     if controlado:
-        reg_control = QuantumRegister(1, "c")
+        reg_control = QuantumRegister(control_number, "c")
 
     reg_b = QuantumRegister(n_bits, "b")
         
@@ -149,32 +153,60 @@ cout: ┤5                    ├┤5                       ├┤4      ├─�
     reg_anc = QuantumRegister(1, "anc")
 
     if controlado:
-        # Construção do circuito
-        qc = QuantumCircuit(reg_control, reg_b, reg_cout, reg_anc, name="c_adder_mod") 
+        if control_number == 1:
+            # Construção do circuito
+            qc = QuantumCircuit(reg_control, reg_b, reg_cout, reg_anc, name="c_adder_mod") 
         
-        qc.append(draper_adder(n_bits, a, controlado=True), reg_control[:] + reg_b[:] + reg_cout[:])
+            qc.append(draper_adder(n_bits, a, controlado=True), reg_control[:] + reg_b[:] + reg_cout[:])
 
-        qc.append(draper_adder(n_bits, N, controlado=True).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
+            qc.append(draper_adder(n_bits, N, controlado=True).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
 
-        qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
+            qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
 
-        qc.cx(reg_cout[0], reg_anc[0])
+            qc.cx(reg_cout[0], reg_anc[0])
 
-        qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+            qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
 
-        qc.append(draper_adder(n_bits, N, controlado=True), reg_anc[:] + reg_b[:] + reg_cout[:])
-    
-        qc.append(draper_adder(n_bits, a, controlado=True).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
+            qc.append(draper_adder(n_bits, N, controlado=True), reg_anc[:] + reg_b[:] + reg_cout[:])
+        
+            qc.append(draper_adder(n_bits, a, controlado=True).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
 
-        qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
+            qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
 
-        qc.x(reg_cout)
-        qc.ccx(reg_control[0], reg_cout[0], reg_anc[0])
-        qc.x(reg_cout)
+            qc.x(reg_cout)
+            qc.ccx(reg_control[0], reg_cout[0], reg_anc[0])
+            qc.x(reg_cout)
 
-        qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+            qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
 
-        qc.append(draper_adder(n_bits, a, controlado=True), reg_control[:] + reg_b[:] + reg_cout[:])
+            qc.append(draper_adder(n_bits, a, controlado=True), reg_control[:] + reg_b[:] + reg_cout[:])
+        elif control_number == 2:
+            qc = QuantumCircuit(reg_control, reg_b, reg_cout, reg_anc, name="c_adder_mod") 
+        
+            qc.append(draper_adder(n_bits, a, controlado=True, control_number=control_number), reg_control[:] + reg_b[:] + reg_cout[:])
+
+            qc.append(draper_adder(n_bits, N, controlado=True, control_number=control_number).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
+
+            qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
+
+            qc.cx(reg_cout[0], reg_anc[0])
+
+            qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+
+            qc.append(draper_adder(n_bits, N, controlado=True), reg_anc[:] + reg_b[:] + reg_cout[:])
+        
+            qc.append(draper_adder(n_bits, a, controlado=True, control_number=control_number).inverse(), reg_control[:] + reg_b[:] + reg_cout[:])
+
+            qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_b[:] + reg_cout[:])
+
+            qc.x(reg_cout)
+            qc.append(XGate().control(control_number+1), reg_control[:] + reg_cout[:] + reg_anc[:])
+            qc.x(reg_cout)
+
+            qc.append(QFT(n_bits + 1, do_swaps=False), reg_b[:] + reg_cout[:])
+
+            qc.append(draper_adder(n_bits, a, controlado=True, control_number=control_number), reg_control[:] + reg_b[:] + reg_cout[:])
+
 
     else:
         qc = QuantumCircuit(reg_b, reg_cout, reg_anc, name="adder_mod")
