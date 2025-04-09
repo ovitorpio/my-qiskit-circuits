@@ -65,14 +65,14 @@ help: ────────┤7             ├┤7             ├┤7      
 
     reg_help = QuantumRegister(1, "help")
 
-    circuito = QuantumCircuit(reg_control, reg_b, reg_0, reg_help, name="mult_mod")
+    qc = QuantumCircuit(reg_control, reg_b, reg_0, reg_help, name="mult_mod")
 
-    circuito.append(QFT(n_bits + 1, do_swaps=False), reg_0)
+    qc.append(QFT(n_bits + 1, do_swaps=False), reg_0)
 
     for i in range(n_bits):
 
-        circuito.append(adder_mod(n_bits, ((2**i) * a) % N, N, controlado=True, control_number=2), reg_control[:] + reg_b[i:i+1] + reg_0[:] + reg_help[:])
+        qc.append(adder_mod(n_bits, ((2**i) * a) % N, N, controlado=True, control_number=2), reg_control[:] + reg_b[i:i+1] + reg_0[:] + reg_help[:])
 
-    circuito.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_0)
+    qc.append(QFT(n_bits + 1, do_swaps=False).inverse(), reg_0)
 
-    return circuito
+    return qc

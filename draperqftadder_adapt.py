@@ -2,7 +2,6 @@ from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.circuit.library import QFT, PhaseGate, XGate
 import numpy as np
 
-
 def draper_adder(n_bits, a, controlado=False, div=False, control_number=1):
     """Retorna um circuito que corresponde ao DraperQFTAdder [1], sem as QFTs e com um operando clássicamente calculado.
 
@@ -235,3 +234,213 @@ cout: ┤5                    ├┤5                       ├┤4      ├─�
 
     return qc
 
+'''
+def draper_adder(n_bits, a, controlado=False, kind="half", control_number=1, div=False):
+    """Retorna um circuito que corresponde ao DraperQFTAdder [1], sem as QFTs e com um operando clássicamente calculado.
+
+    Faz a operação a + b : b é o número que está no registrador reg_b.
+
+    Parametros:
+    n_bits : int
+        Número de bits do operando.
+    a : int
+        Operando implícito calculado classicamente.
+    kind : string
+        Diz o tipo do Adder, "half" é o default e adiciona um CarryOut, "fixed" não adiciona CarryOut
+        e por isso a adição é feita módulo 2^n_bits
+    controlado : bool
+        Se o adder será controlado ou não (precisa do bit de controle).
+    control_number : int
+        Número de qubits que controlam esse operador (c qubits).
+    div : bool
+        Se o adder será utilizado em uma divisão.
+
+    Retorna:
+    QuantumCircuit 
+    circuito montado com os registradores nessa ordem:
+        if controlado: 
+            c + n + 1 qubits
+            registrador_controle (c bits)
+            registrador_operando (n bits)
+            registrador_carryout (1 bit)
+        else:
+            n + 1 qubits
+            registrador_operando (n bits)
+            registrador_carryout (1 bit)
+
+    References: 
+        [1] T. G. Draper, Addition on a Quantum Computer, 2000. arXiv:quant-ph/0008033
+        https://docs.quantum.ibm.com/api/qiskit/qiskit.circuit.library.DraperQFTAdder
+    """
+
+    # Registradores principais
+    reg_b = QuantumRegister(n_bits, "b")
+    if kind=="half":
+        reg_cout = QuantumRegister(1, "cout")
+
+    if div: # Se for divisão, *2 até ficar com n_bits
+        bitstring = bin(a)[2:] + ("0" * (n_bits - len(bin(a)) + 2))
+    else: # Se não for divisão, igualar o numero de bits sem alterar o valor
+        bitstring = bin(a)[2:].zfill(n_bits)
+    bitstring = bitstring[::-1]
+
+    if not controlado:
+        if kind=="half":
+            qc = QuantumCircuit(reg_b, reg_cout, name="adapt_drap_adder")
+        else: 
+            qc = QuantumCircuit(reg_b, name="adapt_drap_adder")
+
+        # Portas controladas por A
+        for j in range(n_bits):
+            for k in range(n_bits - j):
+                if bitstring[j] == "1":
+                    lam = np.pi / (2**k)
+                    qc.p(lam, reg_b[j + k])
+
+        if kind=="half":
+            for j in range(n_bits):
+                if bitstring[n_bits - j - 1] == "1":
+                    lam = np.pi / (2 ** (j + 1))
+                    qc.p(lam, reg_cout[0])
+
+    else:
+        # Registrador de controle
+        reg_c = QuantumRegister(control_number, "c")
+        if kind=="half":
+            qc = QuantumCircuit(reg_c, reg_b, reg_cout, name="c_adapt_drap_adder")
+        else:
+            qc = QuantumCircuit(reg_c, reg_b, name="c_adapt_drap_adder")
+
+        # Portas controladas por A e pelo registrador de controle
+        for j in range(n_bits):
+            for k in range(n_bits - j):
+                if bitstring[j] == "1":
+                    lam = np.pi / (2**k)
+                    qc.append(PhaseGate(lam).control(control_number), reg_c[:] + reg_b[j + k:j + k + 1])
+
+        if kind=="half":
+            for j in range(n_bits):
+                if bitstring[n_bits - j - 1] == "1":
+                    lam = np.pi / (2 ** (j + 1))
+                    qc.append(PhaseGate(lam).control(control_number), reg_c[:] + reg_cout[:])
+
+    return qc
+
+
+def adder_mod(n_bits, a, N, controlado=False, control_number=1):
+    """Retorna um circuito que implementa o Adder Modular proposto no artigo [1]
+        usando o DraperQFTAdder com 1 operando clássicamente calculado como Adder e aplicando
+        otimizações do artigo [2] quanto as QFTs.
+
+    Faz a operação a + b mod N : b é o número que está no registrador reg_b.
+
+    Exemplo: Adder Modular controlado, com um operando de 4 qubits. 
+
+      ┌─────────────────────┐┌────────────────────────┐                                             ┌────────────────────────┐                                ┌─────────────────────┐
+   c: ┤0                    ├┤0                       ├─────────────────────────────────────────────┤0                       ├────────────────■───────────────┤0                    ├
+      │                     ││                        │┌───────┐     ┌──────┐┌─────────────────────┐│                        │┌───────┐       │       ┌──────┐│                     │
+ b_0: ┤1                    ├┤1                       ├┤0      ├─────┤0     ├┤1                    ├┤1                       ├┤0      ├───────┼───────┤0     ├┤1                    ├
+      │                     ││                        ││       │     │      ││                     ││                        ││       │       │       │      ││                     │
+ b_1: ┤2                    ├┤2                       ├┤1      ├─────┤1     ├┤2                    ├┤2                       ├┤1      ├───────┼───────┤1     ├┤2                    ├
+      │  c_adapt_drap_adder ││  c_adapt_drap_adder_dg ││       │     │      ││                     ││  c_adapt_drap_adder_dg ││       │       │       │      ││  c_adapt_drap_adder │
+ b_2: ┤3                    ├┤3                       ├┤2 IQFT ├─────┤2 QFT ├┤3                    ├┤3                       ├┤2 IQFT ├───────┼───────┤2 QFT ├┤3                    ├
+      │                     ││                        ││       │     │      ││  c_adapt_drap_adder ││                        ││       │       │       │      ││                     │
+ b_3: ┤4                    ├┤4                       ├┤3      ├─────┤3     ├┤4                    ├┤4                       ├┤3      ├───────┼───────┤3     ├┤4                    ├
+      │                     ││                        ││       │     │      ││                     ││                        ││       │┌───┐  │  ┌───┐│      ││                     │
+cout: ┤5                    ├┤5                       ├┤4      ├──■──┤4     ├┤5                    ├┤5                       ├┤4      ├┤ X ├──■──┤ X ├┤4     ├┤5                    ├
+      └─────────────────────┘└────────────────────────┘└───────┘┌─┴─┐└──────┘│                     │└────────────────────────┘└───────┘└───┘┌─┴─┐└───┘└──────┘└─────────────────────┘
+ anc: ──────────────────────────────────────────────────────────┤ X ├────────┤0                    ├────────────────────────────────────────┤ X ├────────────────────────────────────
+                                                                └───┘        └─────────────────────┘                                        └───┘
+
+    Parametros:
+    n_bits : int
+        Número de bits do operando.
+    a : int
+        Operando implícito calculado classicamente.
+    N : int
+        Operando implícito que controla o mod
+    controlado : bool
+        Se o adder será controlado ou não (precisa do bit de controle).
+    control_number : int
+        Número de qubits que controlam esse operador (c qubits).
+
+    Retorna:
+    QuantumCircuit 
+    circuito montado com os registradores nessa ordem:
+        if controlado: 
+            c + n + 2 qubits
+            registrador_controle (c bits)
+            registrador_operando (n bits)
+            registrador_carryout (1 bit)
+            registrador_ancilla (1 bit)
+        else:
+            n + 2 qubits
+            registrador_operando (n bits)
+            registrador_carryout (1 bit)
+            registrador_ancilla (1 bit)
+
+    References: 
+        [1] Vlatko Vedral, Adriano Barenco, and Artur Ekert, Quantum networks for elementary arithmetic operations, quant-ph/9511018
+        [2] Stephane Beauregard, Circuit for Shor's algorithm using 2n+3 qubits, arXiv:quant-ph/0205095
+        [3] Takahashi, Yasuhiro and Kunihiro, Noboru, A quantum circuit for shor's factoring algorithm using 2n + 2 qubits, https://dl.acm.org/doi/abs/10.5555/2011665.2011669
+    """
+
+    # Construção dos registradores
+
+    if controlado:
+        reg_control = QuantumRegister(control_number, "c")
+
+    reg_b = QuantumRegister(n_bits, "b")
+
+    reg_anc = QuantumRegister(1, "anc")
+
+    if controlado:
+            qc = QuantumCircuit(reg_control, reg_b, reg_anc, name="c_adder_mod") 
+
+            qc.append(draper_adder(n_bits, N - a, controlado=True, kind="fixed", control_number=control_number).inverse(), reg_control[:] + reg_b[:])
+
+            qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+            qc.cx(reg_b[-1], reg_anc[0])
+
+            qc.append(QFT(n_bits, do_swaps=False), reg_b[:])
+
+            qc.append(draper_adder(n_bits, N, controlado=True, kind="fixed"), reg_anc[:] + reg_b[:])
+        
+            qc.append(draper_adder(n_bits, a, controlado=True, kind="fixed", control_number=control_number).inverse(), reg_control[:] + reg_b[:])
+
+            qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+            qc.x(reg_b[-1])
+            qc.append(XGate().control(control_number+1), reg_control[:] + reg_b[-1:] + reg_anc[:])
+            qc.x(reg_b[-1])
+
+            qc.append(QFT(n_bits, do_swaps=False), reg_b[:])
+
+            qc.append(draper_adder(n_bits, a, controlado=True, kind="fixed", control_number=control_number), reg_control[:] + reg_b[:])
+        
+    else:
+        qc = QuantumCircuit(reg_b, reg_anc, name="adder_mod")
+
+        qc.append(draper_adder(n_bits, N - a, kind="fixed").inverse(), reg_b[:])
+
+        qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+        qc.cx(reg_b[-1], reg_anc[0])
+
+        qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+        qc.append(draper_adder(n_bits, N, controlado=True, kind="fixed"), reg_anc[:] + reg_b[:])
+    
+        qc.append(draper_adder(n_bits, a, kind="fixed").inverse(), reg_b[:])
+
+        qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+        qc.cx(reg_b[-1], reg_anc[0], ctrl_state="0")
+
+        qc.append(QFT(n_bits, do_swaps=False).inverse(), reg_b[:])
+
+        qc.append(draper_adder(n_bits, a, kind="fixed"), reg_b[:])
+
+    return qc
+'''
