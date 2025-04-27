@@ -1,6 +1,6 @@
 # Modular Exponentiation with Windowed Arithmetic (Qiskit)
 
-Este projeto implementa uma versão otimizada da exponenciação modular \(x \mapsto \text{base}^x \bmod N\) utilizando windowed arithmetic trabalho de Gidney & Ekerå (2019). 
+Este projeto implementa uma versão otimizada da exponenciação modular x -> base^x mod N utilizando windowed arithmetic trabalho de Gidney & Ekerå (2019). 
 
 A técnica é aplicada em dois níveis:
 - Windowing sobre o expoente (reduz o número de multiplicações modulares),
@@ -11,14 +11,14 @@ A técnica é aplicada em dois níveis:
 Em algoritmos como o de Shor a etapa de exponenciação modular é a parte mais custosa em termos de número de portas quânticas.  
 Implementá-la de maneira mais eficiente é importante para reduzir o número de qubits e tempo de execução.
 
-A abordagem tradicional (sem janela) faz uma multiplicação modular para cada bit do expoente, usando adições sequenciais que levam os circuitos a terem profundidade e T-count \(O(n^2)\).
+A abordagem tradicional (sem janela) faz uma multiplicação modular para cada bit do expoente, usando adições sequenciais que levam os circuitos a terem profundidade e T-count O(n²).
 
 Já com windowed arithmetic:
-- Reduzimos o número de multiplicações em \(1/c_{\text{exp}}\),
-- Reduzimos o número de somas dentro de cada multiplicação em \(1/c_{\text{mul}}\),
-- E introduzimos apenas pequenas tabelas QROM para fazer os lookups.
+- Reduzimos o número de multiplicações em 1/c_exp (c_exp = tamanho da janela no expoente);
+- Reduzimos o número de somas dentro de cada multiplicação em 1/c_mul (c_mul = tamanho da janela nas somas);
+- E introduzimos apenas pequenas tabelas QROM para fazer os lookups com custo em ancillas.
 
-Assim o custo total melhora para cerca de \(O(n^2/\log n)\) (dependendo da escolha das janelas).
+Assim o custo total melhora para cerca de O(n² / log n)(dependendo da escolha das janelas).
 
 ## Arquivos
 
@@ -30,12 +30,18 @@ Assim o custo total melhora para cerca de \(O(n^2/\log n)\) (dependendo da escol
 
 ## Requisitos
 
+Instale todas as dependências com:
 
-Instale as dependências com:
+```bash
+pip install -r requirements.txt
+```
+
+Ou instale as dependências manualmente com:
 
 ```bash
 pip install qiskit qiskit-aer matplotlib pylatexenc
 ```
+
 # Como usar
 - Clone o projeto e navegue até a pasta.
 - Execute o arquivo test.py para gerar e simular um circuito de exponenciação modular.
