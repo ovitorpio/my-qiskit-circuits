@@ -9,6 +9,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Ignorar a pasta de configurações do editor (opcional)
+# Ignorar a pasta de configurações do editor
 .vscode/
 .idea/

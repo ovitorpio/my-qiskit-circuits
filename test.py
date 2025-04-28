@@ -18,6 +18,7 @@ creg = ClassicalRegister(circ.num_qubits, "meas")
 circ.add_register(creg)
 circ.measure(range(circ.num_qubits), range(circ.num_clbits))
 
+
 ## #simulacao 
 backend = AerSimulator()
 tcirc    = transpile(circ, backend)
@@ -27,3 +28,4 @@ counts   = result.get_counts()
 print("Total de qubits :", circ.num_qubits)
 print("Profundidade (after decompose):", circ.decompose().depth())
 print("Counts (amostrados) :", counts)
+print(circ.draw(output='text'))

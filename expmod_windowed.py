@@ -27,8 +27,10 @@ def expmod_windowed(N: int,
         N      - módulo (clássico, ímpar)
         base   - inteiro base  (coprimo de N)
         n_exp  - qubits do expoente |e⟩
-        c_exp  - largura da janela no expoente (default 3)
-        c_mul  - largura da janela dentro das multiplicações
+        c_exp  - largura da janela no expoente (default 3) (quantas multiplicações quânticas serão agrupadas)
+        c_mul  - largura da janela dentro das multiplicações (quantas adições bit-a-bit serão agrupadas)
+
+
 
     Registradores de trabalho:
         e      : n_exp    - expoente (input)
@@ -37,12 +39,12 @@ def expmod_windowed(N: int,
         anc    :     2    - ancillas (QROM)
     """
     ## tamanhos 
-    n_bits = int(log2(N)) + 1                ## tamanho de N
+    n_bits = int(log2(N)) + 1                ## nº de qubits para representar N
     w_exp  = ceil(n_exp / c_exp)             ## nº de janelas no expoente
 
     ## registradores
-    reg_e   = QuantumRegister(n_exp,   "e")      ## expoente
-    acc     = QuantumRegister(n_bits + 1, "acc") ## acumulador
+    reg_e   = QuantumRegister(n_exp,   "e")      ## expoente |e>
+    acc     = QuantumRegister(n_bits + 1, "acc") ## acumulador |resultado>
     tmp     = QuantumRegister(n_bits + 1, "tmp") ## workspace (sobra  |0>)
     anc     = QuantumRegister(2,         "anc")  ## ancillas QROM
 
